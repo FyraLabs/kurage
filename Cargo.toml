@@ -1,0 +1,13 @@
+[package]
+name = "kurage"
+version = "0.1.0"
+edition = "2021"
+description = "Helper functions/macros for development with relm4"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/FyraLabs/kurage"
+readme = "README.md"
+keywords = ["relm4", "gtk", "gtk4"]
+
+[dependencies]
+paste = "1.0.15"
+relm4 = { version = "0.9.1", default-features = false }
