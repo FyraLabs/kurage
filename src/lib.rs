@@ -74,101 +74,28 @@ macro_rules! generate_page {
         => {$( $out:pat ),*}
         $($viewtt:tt)+
     ) => {
-        // use $crate::prelude::*;
         use relm4::{ComponentParts, ComponentSender, RelmWidgetExt, SimpleComponent};
 
         ::paste::paste! {
-            $crate::generate_page!{ @model $page $($($model)+)? }
+            $crate::generate_component!(
+                [<$page Page>]$({$($model)+})? $(as $modelname)?:
+                $(init$([$($local_ref)+])?($root, $initsender, $initmodel, $initwidgets) $initblock)?
+                update($self, $message, $sender) {
+                    Nav(action: NavAction) => $sender.output(Self::Output::Nav(action)).unwrap(),
+                    $( $msg$(($($param: $paramtype),+))? => $msghdl),*
+                } => {Nav(NavAction), $($out),*}
 
-            #[derive(Debug)]
-            pub enum [<$page PageMsg>] {
-                Nav(NavAction),
-                $($msg$(($($paramtype),+))?),*
-            }
+                libhelium::ViewMono {
+                    append = &gtk::Box {
+                        set_orientation: gtk::Orientation::Vertical,
+                        set_spacing: 4,
 
-            #[derive(Debug)]
-            pub enum [<$page PageOutput>] {
-                Nav(NavAction),
-                $($out),*
-
-            }
-
-            #[relm4::component(pub)]
-            impl SimpleComponent for [<$page Page>] {
-                type Init = ();
-                type Input = [<$page PageMsg>];
-                type Output = [<$page PageOutput>];
-
-                view! {
-                    libhelium::ViewMono {
-                        append = &gtk::Box {
-                            set_orientation: gtk::Orientation::Vertical,
-                            set_spacing: 4,
-
-                            $($viewtt)+
-                        }
+                        $($viewtt)+
                     }
                 }
-
-                fn init(
-                    _init: Self::Init,
-                    root: Self::Root,
-                    $sender: ComponentSender<Self>,
-                ) -> ComponentParts<Self> {
-                    #[allow(unused_mut, unused_assignments)]
-                    let mut model = Self::default();
-
-                    $(
-                        #[allow(unused_mut)]
-                        // HACK: this solves variable name obfuscation in macro_rules! {}
-                        let mut $initmodel = model;
-                        #[allow(unused_variables)]
-                        let $initsender = $sender;
-                    )?
-
-                    $($($(let $local_ref = &$initmodel.$local_ref;)+)?)?
-
-                    // HACK: invoking view_output!() directly gives `()` when $init* is given.
-                    // I don't know why this fixes the issue. — mado
-                    let widgets = [<view _output>]!();
-
-                    $(
-                        let $initwidgets = widgets;
-
-                        $initblock
-
-                        let model = $initmodel;
-                        let widgets = $initwidgets;
-                    )?
-
-                    ComponentParts { model, widgets }
-                }
-
-                fn update(&mut $self, $message: Self::Input, $sender: ComponentSender<Self>) {
-                    // HACK: hard code InstallingPageMsg::Throb to not log
-                    if &*format!("{:?}", $message) != "Throb" {
-                        tracing::trace!(?$message, "{}", const_format::concatcp!(stringify!($page), "Page: received message"));
-                    }
-                    match $message {
-                        Self::Input::Nav(action) => {
-                            $sender.output(Self::Output::Nav(action)).unwrap();
-                        }
-                        $(Self::Input::$msg$(($($param),+))? => $msghdl),*
-                    }
-                }
-            }
+            );
         }
     };
-    (@model $page:ident $($model:tt)+) => {paste::paste! {
-        #[derive(Debug, Default)]
-        pub struct [<$page Page>] {$($model)+}
-    }};
-    (@model $page:ident) => {paste::paste! {
-        #[derive(Debug, Default)]
-        pub struct [<$page Page>];
-    }};
-    (@?model) => { model };
-    (@?model $model:ident) => { $model };
 }
 
 #[macro_export]
@@ -202,6 +129,7 @@ macro_rules! generate_component {
 
 
             #[allow(clippy::used_underscore_binding)]
+            #[allow(unused_variables)]
             fn init(
                 init: Self::Init,
                 root: Self::Root,
@@ -214,7 +142,7 @@ macro_rules! generate_component {
                     let mut $initmodel = Self::default();
                 })?);
 
-                $($($(let $local_ref = &$initmodel.$local_ref;)?)?)+
+                $($($(let $local_ref = &$initmodel.$local_ref;)+)?)?
 
                 $(
                     let $root = root.clone();
@@ -257,14 +185,14 @@ macro_rules! generate_component {
         #[derive(Debug, Default)]
         pub struct [<$comp>];
     }};
-    (@out $comp:ident {$( $out:pat ),*}) => { ::paste::paste! {
+    (@out $comp:ident {$( $out:tt )*}) => { ::paste::paste! {
         #[derive(Debug)]
         pub enum [<$comp Output>] {
-            $($out),*
+            $($out)*
         }
     }};
     (@out $comp:ident $outty:ty) => { };
-    (@outty $comp:ident {$( $out:pat ),*}) => { ::paste::paste! { [<$comp Output>] }};
+    (@outty $comp:ident {$( $out:tt )*}) => { ::paste::paste! { [<$comp Output>] }};
     (@outty $comp:ident $outty:ty) => { $outty };
 
     (@default {$($default:tt)+} {$($if:tt)+}) => { $($if)+ };
