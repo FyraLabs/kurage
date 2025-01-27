@@ -8,7 +8,7 @@
 /// ```
 struct GenerateGeneratorSyn {
     macroname: syn::Ident,
-    component: Option<proc_macro2::TokenStream>,
+    component: Option<proc_macro2::TokenTree>,
     views: proc_macro2::TokenStream,
 }
 
@@ -29,7 +29,7 @@ impl syn::parse::Parse for GenerateGeneratorSyn {
             Ok(Self {
                 macroname,
                 component: None,
-                views: rest,
+                views: rest.into(),
             })
         }
     }
@@ -61,6 +61,7 @@ pub fn generate_generator(input: proc_macro::TokenStream) -> proc_macro::TokenSt
         views,
     } = syn::parse_macro_input!(input as GenerateGeneratorSyn);
     let views: proc_macro2::TokenStream = recurse_replace_kurage_inner(views).collect();
+    let component = component.unwrap_or(quote::quote! { [<$name>] }.into_iter().next().unwrap());
     quote::quote! {
         macro_rules! #macroname {
             ($name:ident $({$($model:tt)+})? $(as $modelname:ident)?:
