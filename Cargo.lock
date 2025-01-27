@@ -515,7 +515,14 @@ dependencies = [
 name = "kurage"
 version = "0.1.0"
 dependencies = [
+ "kurage_macro_rules",
  "kurage_proc_macros",
+]
+
+[[package]]
+name = "kurage_macro_rules"
+version = "0.1.0"
+dependencies = [
  "paste",
  "relm4",
  "tracing",
@@ -525,6 +532,7 @@ dependencies = [
 name = "kurage_proc_macros"
 version = "0.1.0"
 dependencies = [
+ "kurage_macro_rules",
  "proc-macro2",
  "quote",
  "syn",

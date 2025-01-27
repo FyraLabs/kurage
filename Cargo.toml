@@ -1,5 +1,5 @@
 [workspace]
-members = ["kurage_proc_macros"]
+members = ["kurage_proc_macros", "kurage_macro_rules"]
 
 [package]
 name = "kurage"
@@ -13,19 +13,13 @@ keywords = ["relm4", "gtk", "gtk4"]
 
 [dependencies]
 kurage_proc_macros = { path = "kurage_proc_macros" }
-paste = "1.0.15"
-relm4 = { version = "0.9.1", default-features = false, features = ["macros"] }
-tracing = { version = "0.1.41", optional = true, default-features = false }
+kurage_macro_rules = { path = "kurage_macro_rules", default-features = false }
 
 [features]
 default = ["tracing"]
-tracing = ["dep:tracing"]
+tracing = ["kurage_macro_rules/tracing"]
 
-[build-dependencies]
-# doc-tests require gtk4
-relm4 = { version = "0.9.1", features = ["macros", "gnome_47"] }
-
-[lints.clippy]
+[workspace.lints.clippy]
 # cargo = { level = "warn", priority = -1 }
 complexity = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }

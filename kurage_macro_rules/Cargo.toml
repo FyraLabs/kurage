@@ -1,0 +1,23 @@
+[package]
+name = "kurage_macro_rules"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "./lib.rs"
+
+[dependencies]
+paste = "1.0.15"
+relm4 = { version = "0.9.1", default-features = false, features = ["macros"] }
+tracing = { version = "0.1.41", optional = true, default-features = false }
+
+[features]
+default = ["tracing"]
+tracing = ["dep:tracing"]
+
+[dev-dependencies]
+# doc-tests require gtk4
+relm4 = { version = "0.9.1", features = ["macros", "gnome_47"] }
+
+[lints]
+workspace = true

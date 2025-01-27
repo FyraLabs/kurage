@@ -11,3 +11,9 @@ path = "./lib.rs"
 proc-macro2 = "1.0.93"
 quote = "1.0.38"
 syn = "2.0.96"
+
+[dev-dependencies]
+kurage = { package = "kurage_macro_rules", path = "../kurage_macro_rules" }
+
+[lints]
+workspace = true
