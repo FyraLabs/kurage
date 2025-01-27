@@ -1,3 +1,6 @@
+[workspace]
+members = ["kurage_proc_macros"]
+
 [package]
 name = "kurage"
 version = "0.1.0"
@@ -9,5 +12,11 @@ readme = "README.md"
 keywords = ["relm4", "gtk", "gtk4"]
 
 [dependencies]
+kurage_proc_macros = { version = "0.1.0", path = "kurage_proc_macros" }
 paste = "1.0.15"
 relm4 = { version = "0.9.1", default-features = false }
+tracing = { version = "0.1.41", optional = true }
+
+[features]
+default = ["tracing"]
+tracing = ["dep:tracing"]

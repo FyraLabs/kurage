@@ -1,6 +1,14 @@
+pub mod page;
+
+pub use kurage_proc_macros::*;
+pub use paste;
+pub use relm4;
+#[cfg(feature = "tracing")]
+pub use tracing;
+
 #[macro_export]
 macro_rules! generate_pages {
-    ($Page:ident $AppModel:ident $AppMsg:ident: $($num:tt: $page:ident $($forward:expr)?),+$(,)?) => {paste::paste! {
+    ($Page:ident $AppModel:ident $AppMsg:ident: $($num:tt: $page:ident $($forward:expr)?),+$(,)?) => { $crate::paste::paste! {
         use pages::{$([<_$num _$page:lower>]::[<$page:camel Page>]),+};
         use pages::{$([<_$num _$page:lower>]::[<$page:camel PageOutput>]),+};
 
@@ -15,14 +23,16 @@ macro_rules! generate_pages {
             type Error = ();
 
             fn try_from(value: usize) -> Result<Self, ()> {
+                #[allow(clippy::zero_prefixed_literal)]
                 Ok(match value {
                     $( $num => Self::[<$page:camel>], )+
-                    _ => return Err(()),
+    _ => return Err(()),
                 })
             }
         }
         impl From<$Page> for usize {
             fn from(val: $Page) -> Self {
+                #[allow(clippy::zero_prefixed_literal)]
                 match val {
                     $( $Page::[<$page:camel>] => $num, )+
                 }
@@ -33,7 +43,7 @@ macro_rules! generate_pages {
         pub struct $AppModel {
             page: $Page,
             $(
-                pub [<$page:snake _page>]: relm4::Controller<[<$page:camel Page>]>,
+                pub [<$page:snake _page>]: $crate::relm4::Controller<[<$page:camel Page>]>,
             )+
         }
 
@@ -43,59 +53,22 @@ macro_rules! generate_pages {
                 $(
                     [<$page:snake _page>]: [<$page:camel Page>]::builder()
                         .launch(())
-                        .forward(sender.input_sender(), generate_pages!(@$page $AppMsg $($forward)?)),
+                        .forward(sender.input_sender(), $crate::generate_pages!(@$page $AppMsg $($forward)?)),
                 )+
             }}
-            // fn page_trig_arrive(&self) -> bool {
-            //     use $crate::ui::PageTrig;
-            //     match self.page {
-            //         $($Page::[<$page:camel>] => self.[<$page:snake _page>].model().arrive(),)+
-            //     }
-            // }
         }
+
+        // macro_rules! list_pages {
+        //     () => {$(page)+};
+        // }
+        // pub(crate) use list_pages;
     }};
-    (@$page:ident $AppMsg:ident) => {paste::paste! {
+    (@$page:ident $AppMsg:ident) => { $crate::paste::paste! {
         |msg| match msg {
             [<$page:camel PageOutput>]::Nav(action) => $AppMsg::Nav(action),
         }
     }};
     (@$page:ident $AppMsg:ident $forward:expr) => { $forward };
-}
-
-#[macro_export]
-macro_rules! generate_page {
-    ($page:ident $({$($model:tt)+})? $(as $modelname:ident)?:
-        $(
-        init$([$($local_ref:ident)+])?($root:ident, $initsender:ident, $initmodel:ident, $initwidgets:ident) $initblock:block
-        )?
-        update($self:ident, $message:ident, $sender:ident) {
-            $( $msg:ident$(($($param:ident: $paramtype:ty),+$(,)?))? => $msghdl:expr ),*$(,)?
-        }
-        => {$( $out:pat ),*}
-        $($viewtt:tt)+
-    ) => {
-        use relm4::{ComponentParts, ComponentSender, RelmWidgetExt, SimpleComponent};
-
-        ::paste::paste! {
-            $crate::generate_component!(
-                [<$page Page>]$({$($model)+})? $(as $modelname)?:
-                $(init$([$($local_ref)+])?($root, $initsender, $initmodel, $initwidgets) $initblock)?
-                update($self, $message, $sender) {
-                    Nav(action: NavAction) => $sender.output(Self::Output::Nav(action)).unwrap(),
-                    $( $msg$(($($param: $paramtype),+))? => $msghdl),*
-                } => {Nav(NavAction), $($out),*}
-
-                libhelium::ViewMono {
-                    append = &gtk::Box {
-                        set_orientation: gtk::Orientation::Vertical,
-                        set_spacing: 4,
-
-                        $($viewtt)+
-                    }
-                }
-            );
-        }
-    };
 }
 
 #[macro_export]
@@ -108,10 +81,10 @@ macro_rules! generate_component {
             $( $msg:ident$(($($param:ident: $paramtype:ty),+$(,)?))? => $msghdl:expr ),*$(,)?
         }
         => $out:tt
-        $($viewtt:tt)+
-    ) => { ::paste::paste! {
+        $($viewtt:tt)*
+    ) => { $crate::paste::paste! {
         $crate::generate_component!{ @model $comp $($($model)+)?}
-        #[derive(Debug)]
+        #[derive(Clone, Debug)]
         pub enum [<$comp Msg>] {
             $($msg$(($($paramtype),+))?),*
         }
@@ -125,7 +98,7 @@ macro_rules! generate_component {
             type Input = [<$comp Msg>];
             type Output = $crate::generate_component!(@outty $comp $out);
 
-            view! { $($viewtt)+ }
+            view! { $($viewtt)* }
 
 
             #[allow(clippy::used_underscore_binding)]
@@ -154,7 +127,6 @@ macro_rules! generate_component {
                 let widgets = [<view _output>]!();
 
                 $(
-                #[allow(unused_mut)]
                 // HACK: this solves variable name obfuscation in macro_rules! {}
                 let $initwidgets = widgets;
                 #[allow(unused_variables)]
@@ -170,14 +142,14 @@ macro_rules! generate_component {
             }
 
             fn update(&mut $self, $message: Self::Input, $sender: ComponentSender<Self>) {
-                tracing::trace!(?$message, "{}", const_format::concatcp!(stringify!($comp), ": received message"));
+                tracing::trace!(?$message, "{}", concat!(stringify!($comp), ": received message"));
                 match $message {
                     $(Self::Input::$msg$(($($param),+))? => $msghdl),*
                 }
             }
         }
     }};
-    (@model $comp:ident $($model:tt)+) => {paste::paste! {
+    (@model $comp:ident $($model:tt)+) => { $crate::paste::paste! {
         #[derive(Debug, Default)]
         pub struct [<$comp>] {$($model)+}
     }};
@@ -185,14 +157,14 @@ macro_rules! generate_component {
         #[derive(Debug, Default)]
         pub struct [<$comp>];
     }};
-    (@out $comp:ident {$( $out:tt )*}) => { ::paste::paste! {
+    (@out $comp:ident {$( $out:tt )*}) => { $crate::paste::paste! {
         #[derive(Debug)]
         pub enum [<$comp Output>] {
             $($out)*
         }
     }};
     (@out $comp:ident $outty:ty) => { };
-    (@outty $comp:ident {$( $out:tt )*}) => { ::paste::paste! { [<$comp Output>] }};
+    (@outty $comp:ident {$( $out:tt )*}) => { $crate::paste::paste! { [<$comp Output>] }};
     (@outty $comp:ident $outty:ty) => { $outty };
 
     (@default {$($default:tt)+} {$($if:tt)+}) => { $($if)+ };
@@ -222,24 +194,17 @@ macro_rules! generate_component {
     (@do_nothing $($tt:tt)+) => { $($tt:tt)+ };
 }
 
-// #[macro_export]
-// macro_rules! skipconfig_skip_page {
-//     ($page:ident) => {
-//         ::paste::paste! {
-//             impl $crate::ui::PageTrig for [<$page Page>] {
-//                 fn arrive(&self) -> bool { $crate::SETTINGS.read().skipconfig }
-//             }
-//         }
-//     };
-// }
+/// Macros used by other kurage macros.
+///
+/// You may override these macros freely.
+#[macro_export]
+macro_rules! kurage_gen_macros {
+    () => {
+        $crate::page::gen_macros!();
+    };
+}
 
-// #[macro_export]
-// macro_rules! always_skip_page {
-//     ($page:ident) => {
-//         ::paste::paste! {
-//             impl $crate::ui::PageTrig for [<$page Page>] {
-//                 fn arrive(&self) -> bool { true }
-//             }
-//         }
-//     };
-// }
+#[macro_export]
+macro_rules! dollar {
+    () => {};
+}
