@@ -6,13 +6,13 @@
 //! - [`generate_pages!`]
 //! - [`generate_generator!`]
 //!
+//! Remember to invoke [`kurage_gen_macros!`] in your crate!
+//!
 //! For actual real-world examples of 🪼, take a look at:
 //!
 //! - [Taidan (OOBE/Welcome App for Ultramarine Linux)](https://github.com/Ultramarine-Linux/taidan)
 //! - [Readymade (Installer for Ultramarine Linux)](https://github.com/FyraLabs/readymade)
 //! - [Enigmata (tauOS Text Editor)](https://github.com/tau-OS/enigmata)
-
-pub mod page;
 
 pub use kurage_proc_macros::*;
 pub use paste;
@@ -40,7 +40,7 @@ macro_rules! generate_pages {
                 #[allow(clippy::zero_prefixed_literal)]
                 Ok(match value {
                     $( $num => Self::[<$page:camel>], )+
-    _ => return Err(()),
+                    _ => return Err(()),
                 })
             }
         }
@@ -81,6 +81,15 @@ macro_rules! generate_pages {
 }
 
 /// Generate a [`relm4::SimpleComponent`].
+///
+/// This expands to
+/// - declaration of the model struct (`struct MyLabel { … }`)
+///   - this comes with `#[derive(Debug, Derive)]`
+/// - declaration of `enum MyLabelMsg { … }` for `type Input = MyLabelMsg;`
+/// - impl `fn init()` if the optional `init()` is omitted in macro invocation
+/// - `fn update()` alongside the declaration of the variants in `MyLabelMsg`
+/// - declaration of `enum MyLabelOutput { … }` for `type Output = MyLabelOutput` (unless another
+///   type is specified otherwise)
 ///
 /// # Examples
 ///
@@ -266,12 +275,26 @@ macro_rules! generate_component {
     (@do_nothing $($tt:tt)+) => { $($tt:tt)+ };
 }
 
-/// Macros used by other kurage macros.
+/// Macros used by other 🪼 macros.
 ///
-/// You may override these macros freely.
+/// You should execute this macro somewhere in your codebase.
+/// This generates a `mod kurage_generated_macros` that contains `pub(crate)`-exported macros that
+/// are used by other 🪼 macros.
+///
+/// The reason these macros exist separately is that you may override these macros freely in order
+/// to customize the behaviour of the macros. These are documented in `Customization` sections of
+/// the corresponding macros.
 #[macro_export]
 macro_rules! kurage_gen_macros {
     () => {
-        $crate::page::gen_macros!();
+        #[allow(unused_macros)]
+        mod kurage_generated_macros {
+            macro_rules! kurage_page_pre {
+                () => {
+                    use relm4::{ComponentParts, ComponentSender, RelmWidgetExt, SimpleComponent};
+                };
+            }
+            pub(crate) use kurage_page_pre;
+        }
     };
 }
