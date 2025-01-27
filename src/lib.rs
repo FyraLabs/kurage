@@ -153,7 +153,7 @@ macro_rules! generate_component {
         #[derive(Debug, Default)]
         pub struct [<$comp>] {$($model)+}
     }};
-    (@model $comp:ident) => {paste::paste! {
+    (@model $comp:ident) => { $crate::paste::paste! {
         #[derive(Debug, Default)]
         pub struct [<$comp>];
     }};
