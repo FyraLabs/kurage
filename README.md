@@ -1,4 +1,8 @@
-> この街になぜ来たのか
+<p align="center">
+  <img src="https://64.media.tumblr.com/c4a05c087d645489142318ab3b6e468f/9ce177eb04a94bb9-1c/s640x960/2c482f43c086cda12d9dc539c97dac47679c8ec6.gifv" alt="Zundamon and Hatsune Miku dancing"/>
+</p>
+
+> この街になぜ来たのか  
 > 何のために来たのか
 
 # 🪼
@@ -32,5 +36,3 @@ We might expand this crate to include things outside of the `relm4` circle in th
 ## Naming
 
 Kurage (くらげ) is a Japanese word meaning "jellyfish". It is a reference to the song named 「.」 in _the Neighbourhood_. It is also a reference to 「ウニクラゲ」 (Urchin & Jellyfish) by Namigroove.
-
-![Zundamon and Hatsune Miku dancing](https://64.media.tumblr.com/c4a05c087d645489142318ab3b6e468f/9ce177eb04a94bb9-1c/s640x960/2c482f43c086cda12d9dc539c97dac47679c8ec6.gifv)
