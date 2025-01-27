@@ -57,11 +57,6 @@ macro_rules! generate_pages {
                 )+
             }}
         }
-
-        // macro_rules! list_pages {
-        //     () => {$(page)+};
-        // }
-        // pub(crate) use list_pages;
     }};
     (@$page:ident $AppMsg:ident) => { $crate::paste::paste! {
         |msg| match msg {
@@ -71,6 +66,69 @@ macro_rules! generate_pages {
     (@$page:ident $AppMsg:ident $forward:expr) => { $forward };
 }
 
+/// Generate a [`relm4::SimpleComponent`].
+///
+/// # Examples
+///
+/// Here is an over-engineered way to show a button labelled "Hello, World!". When the button is
+/// clicked, "Hello, World!" is printed in the console.
+///
+/// ```
+/// use kurage::relm4::gtk::{self, prelude::*};
+/// use relm4::prelude::*;
+/// kurage::generate_component!(MyLabel:
+///   update(self, message, sender) {} => {}
+///   //                            ┯━    ┬─
+///   //          enum Self::Input ─╯     │
+///   //                                  │
+///   // enum Self::Output (you can also specify your own types)
+///
+///   gtk::Label {
+///     set_label: "Hello, World!",
+///   },
+/// );
+///
+/// #[derive(Debug)] // required for all fields of MyOtherComponent
+/// struct MyOtherComponentInner {
+///   mylabel: relm4::component::Connector<MyLabel>,
+/// }
+/// impl Default for MyOtherComponentInner {
+///   fn default() -> Self {
+///     Self { mylabel: MyLabel::builder().launch(()) }
+///   }
+/// }
+///
+/// kurage::generate_component!(MyOtherComponent {
+///   btn: gtk::Button,
+///   inner: MyOtherComponentInner,
+/// }:
+///   init[btn](root, sender, model, widgets) /* for my_init_var: MyInitType */ {
+///     //──┬──                               ══════════════════════════════╤══
+///     //  ╰─ optional, a space separated list of things for #[local_ref]  │
+///     //                                                                  ╵
+///     //     when you would like to set anything other than `type Init = ();`
+///     //
+///     // NOTE: init() is entirely optional, but update() is required.
+///     //
+///     // code in this block will be run only after `view_output!()`.
+///     // also, the model (i.e. `self`) is initialized using `Self::default()`.
+///
+///     model.inner.mylabel.detach_runtime(); // model is mutable
+///   }
+///   update(self, message, sender) {
+///     ButtonClicked => println!("Hello, World!"),
+///   } => {}
+///
+///   gtk::Box {
+///     #[local_ref] btn ->
+///     gtk::Button {
+///       connect_clicked => Self::Input::ButtonClicked,
+///
+///       set_child: Some(model.inner.mylabel.widget()),
+///     }
+///   }
+/// );
+/// ```
 #[macro_export]
 macro_rules! generate_component {
     ($comp:ident $({$($model:tt)+})?:
@@ -91,8 +149,8 @@ macro_rules! generate_component {
 
         $crate::generate_component!(@out $comp $out);
 
-        #[relm4::component(pub)]
-        impl SimpleComponent for $comp {
+        #[$crate::relm4::component(pub)]
+        impl $crate::relm4::SimpleComponent for $comp {
             #[allow(unused_parens)]
             type Init = ($($($InitType)?)?);
             type Input = [<$comp Msg>];
@@ -106,8 +164,8 @@ macro_rules! generate_component {
             fn init(
                 init: Self::Init,
                 root: Self::Root,
-                $sender: ComponentSender<Self>,
-            ) -> ComponentParts<Self> {
+                $sender: $crate::relm4::ComponentSender<Self>,
+            ) -> $crate::relm4::ComponentParts<Self> {
                 $crate::generate_component!(@default {
                     let model = Self::default();
                 } $({
@@ -138,11 +196,11 @@ macro_rules! generate_component {
                 let widgets = $initwidgets;
                 )?
 
-                ComponentParts { model, widgets }
+                $crate::relm4::ComponentParts { model, widgets }
             }
 
-            fn update(&mut $self, $message: Self::Input, $sender: ComponentSender<Self>) {
-                tracing::trace!(?$message, "{}", concat!(stringify!($comp), ": received message"));
+            fn update(&mut $self, $message: Self::Input, $sender: $crate::relm4::ComponentSender<Self>) {
+                // tracing::trace!(?$message, "{}", concat!(stringify!($comp), ": received message"));
                 match $message {
                     $(Self::Input::$msg$(($($param),+))? => $msghdl),*
                 }
@@ -174,22 +232,22 @@ macro_rules! generate_component {
         fn init(
             init: Self::Init,
             root: Self::Root,
-            $sender: ComponentSender<Self>,
-        ) -> ComponentParts<Self> { $body }
+            $sender: $crate::relm4::ComponentSender<Self>,
+        ) -> $crate::relm4::ComponentParts<Self> { $body }
     };
     (@init $body:block {$($inner:tt)+}($sender:ident $root:ident)) => {
         fn init(
             init: Self::Init,
             $root: Self::Root,
-            $sender: ComponentSender<Self>,
-        ) -> ComponentParts<Self> { $body }
+            $sender: $crate::relm4::ComponentSender<Self>,
+        ) -> $crate::relm4::ComponentParts<Self> { $body }
     };
     (@init $body:block {$($inner:tt)+}($sender:ident $root:ident $init:ident)) => {
         fn init(
             $init: Self::Init,
             $root: Self::Root,
-            $sender: ComponentSender<Self>,
-        ) -> ComponentParts<Self> { $body }
+            $sender: $crate::relm4::ComponentSender<Self>,
+        ) -> $crate::relm4::ComponentParts<Self> { $body }
     };
     (@do_nothing $($tt:tt)+) => { $($tt:tt)+ };
 }
@@ -202,9 +260,4 @@ macro_rules! kurage_gen_macros {
     () => {
         $crate::page::gen_macros!();
     };
-}
-
-#[macro_export]
-macro_rules! dollar {
-    () => {};
 }
