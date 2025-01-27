@@ -7,16 +7,31 @@
 /// }
 /// ```
 struct GenerateGeneratorSyn {
-    name: syn::Ident,
+    macroname: syn::Ident,
+    component: Option<proc_macro2::TokenStream>,
     views: proc_macro2::TokenStream,
 }
 
 impl syn::parse::Parse for GenerateGeneratorSyn {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let name = input.parse()?;
+        let macroname = input.parse()?;
         input.parse::<syn::Token![=>]>()?;
-        let views = input.parse()?;
-        Ok(Self { name, views })
+        let rest = input.parse()?;
+        if input.peek(syn::Token![=>]) {
+            input.parse::<syn::Token![=>]>()?;
+            let views = input.parse()?;
+            Ok(Self {
+                macroname,
+                component: Some(rest),
+                views,
+            })
+        } else {
+            Ok(Self {
+                macroname,
+                component: None,
+                views: rest,
+            })
+        }
     }
 }
 
@@ -40,12 +55,15 @@ fn recurse_replace_kurage_inner(
 
 #[proc_macro]
 pub fn generate_generator(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let GenerateGeneratorSyn { name, views } =
-        syn::parse_macro_input!(input as GenerateGeneratorSyn);
+    let GenerateGeneratorSyn {
+        macroname,
+        component,
+        views,
+    } = syn::parse_macro_input!(input as GenerateGeneratorSyn);
     let views: proc_macro2::TokenStream = recurse_replace_kurage_inner(views).collect();
     quote::quote! {
-        macro_rules! #name {
-            ($page:ident $({$($model:tt)+})? $(as $modelname:ident)?:
+        macro_rules! #macroname {
+            ($name:ident $({$($model:tt)+})? $(as $modelname:ident)?:
                 $(
                 init$([$($local_ref:ident)+])?($root:ident, $initsender:ident, $initmodel:ident, $initwidgets:ident) $initblock:block
                 )?
@@ -54,10 +72,10 @@ pub fn generate_generator(input: proc_macro::TokenStream) -> proc_macro::TokenSt
                 }
                 => {$( $out:pat ),*}
                 $($viewtt:tt)*
-            ) => { ::paste::paste! {
+            ) => { kurage::paste::paste! {
                 kurage_page_pre!();
                 kurage::generate_component!(
-                    [<$page Page>]$({$($model)+})? $(as $modelname)?:
+                    #component$({$($model)+})? $(as $modelname)?:
                     $(init$([$($local_ref)+])?($root, $initsender, $initmodel, $initwidgets) $initblock)?
                     update($self, $message, $sender) {
                     Nav(action: NavAction) => $sender.output(Self::Output::Nav(action)).unwrap(),
