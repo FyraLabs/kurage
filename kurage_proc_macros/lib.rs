@@ -1,37 +1,106 @@
-/// Parses the following syntax:
-///
-/// ```ignore
-/// generate_generator! { name =>
-///    gtk::Label { ... },
-///    Idk { whatelse: true },
-/// }
-/// ```
+use proc_macro2::{Delimiter, Group, TokenStream, TokenTree};
+use syn::{parse::Parse, punctuated::Punctuated, Token};
+
 struct GenerateGeneratorSyn {
     macroname: syn::Ident,
     component: Option<proc_macro2::TokenTree>,
-    views: proc_macro2::TokenStream,
+    structblk: Option<proc_macro2::TokenStream>,
+    initblk: Option<proc_macro2::TokenStream>,
+    updateblk: Option<proc_macro2::TokenStream>,
+    updateout: Option<Punctuated<proc_macro2::TokenStream, Token![,]>>,
+    view_first: Option<proc_macro2::TokenTree>,
+    views: Option<proc_macro2::TokenStream>,
 }
 
 impl syn::parse::Parse for GenerateGeneratorSyn {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let macroname = input.parse()?;
         input.parse::<syn::Token![=>]>()?;
-        let rest = input.parse()?;
-        if input.peek(syn::Token![=>]) {
-            input.parse::<syn::Token![=>]>()?;
-            let views = input.parse()?;
-            Ok(Self {
-                macroname,
-                component: Some(rest),
-                views,
-            })
-        } else {
-            Ok(Self {
-                macroname,
-                component: None,
-                views: rest.into(),
-            })
+        let mut out = Self {
+            macroname,
+            component: None,
+            structblk: None,
+            initblk: None,
+            updateblk: None,
+            updateout: None,
+            view_first: None,
+            views: None,
+        };
+        let mut next = loop {
+            match input.parse::<TokenTree>()? {
+                TokenTree::Group(g) if g.delimiter() == proc_macro2::Delimiter::Bracket => {
+                    // [< paste >]
+                    if out.component.is_some() {
+                        return Err(syn::Error::new(
+                            g.span(),
+                            "kurage: you may specify [< paste >] once only.",
+                        ));
+                    }
+                    out.component = Some(g.into());
+                    continue;
+                }
+                TokenTree::Group(g) if g.delimiter() == proc_macro2::Delimiter::Brace => {
+                    // { structblk }
+                    out.structblk = Some(g.stream());
+                    input.parse::<syn::Token![:]>()?;
+                    break input.parse()?;
+                }
+                TokenTree::Group(g) => {
+                    return Err(syn::Error::new(g.span(), "kurage: unexpected token. Pass in [<$name Page>] for a custom naming scheme (look at the paste crate), or provide a { field1: Type, field2: Type2 } block."));
+                }
+                TokenTree::Punct(p) if p.as_char() == ':' && out.component.is_some() => {
+                    break input.parse()?;
+                }
+                TokenTree::Punct(p) if p.as_char() == ':' => {
+                    return Err(syn::Error::new(
+                        p.span(),
+                        "kurage: missing [< paste Component >] before `:`",
+                    ))
+                }
+                x => break x,
+            }
+        };
+        match &next {
+            proc_macro2::TokenTree::Ident(i) if i == "init" => {
+                input.parse::<syn::Token![:]>()?;
+                let t = input.parse::<Group>()?;
+                if t.delimiter() != Delimiter::Brace {
+                    return Err(syn::Error::new(t.span(), "kurage: expected { ... }"));
+                }
+                out.initblk = Some(t.stream());
+                next = input.parse()?;
+            }
+            _ => (),
         }
+        match &next {
+            proc_macro2::TokenTree::Ident(i) if i == "update" => {
+                struct Idk(Punctuated<TokenStream, Token![,]>);
+                impl Parse for Idk {
+                    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+                        input
+                            .parse_terminated(TokenStream::parse, Token![,])
+                            .map(Self)
+                    }
+                }
+                input.parse::<syn::Token![:]>()?;
+                let t = input.parse::<Group>()?;
+                if t.delimiter() != Delimiter::Brace {
+                    return Err(syn::Error::new(t.span(), "kurage: expected { ... }"));
+                }
+                out.updateblk = Some(t.stream());
+                input.parse::<syn::Token![=>]>()?;
+                let t = input.parse::<Group>()?;
+                if t.delimiter() != Delimiter::Brace {
+                    return Err(syn::Error::new(t.span(), "kurage: expected { ... }"));
+                }
+                out.updateout = Some(syn::parse2::<Idk>(t.stream())?.0);
+                next = input.parse()?;
+            }
+            _ => (),
+        }
+        out.view_first = Some(next);
+        out.views = Some(input.parse()?);
+        Ok(out)
     }
 }
 
@@ -91,9 +160,31 @@ fn recurse_replace_kurage_inner(
 /// // if you are going to use the macros outside of the module, export it
 /// pub(crate) use kurage_page_pre;
 ///
-/// generate_generator! { generate_page => [<$name Page>] =>
-///   //                          ━┯━━━━━━━━━━━    ╌╌╌╌╌╌╌╌╌╌╌╌╌╌ ╌╌
-///   //  required new macro name ─┘             (optional) format of new component names
+/// generate_generator! { generate_page => [<$name Page>] {}:
+///   //                  ━━━━━━━━━┯━━━    ╍╍╍╍╍╍╍╍╍╍╍╍╍╍ ┄┄╍
+///   //                           │              ┃       ╰─╂── further optional additional fields
+///   //                           │              ┣━━━━━━━━━┛   in the new struct
+///   //  required new macro name ─┘     (optional) format of new component names
+///
+///   // writing `init: {}` is totally optional
+///   init: {
+///     // available metavariables:
+///     // - $name
+///     // - $modelname (the init variable used for `.launch()`ing this component)
+///     // - $root, $initsender, $initmodel, $initwidgets
+///   }
+///
+///   // writing `update: {} => {}` is also optional. Note that all macros generated by
+///   // `generate_generator!` will always force `Output` to be a new enum.
+///   update: {
+///     // available metavariables:
+///     // - $self
+///     // - $message
+///     // - $sender
+///
+///     // let's try to create a new Input variant
+///     Print(s: String) => println!("{s}"),
+///   } => {}
 ///
 ///   // The original code was:
 ///   //
@@ -128,6 +219,9 @@ fn recurse_replace_kurage_inner(
 ///   gtk::Label {
 ///     set_label: "Hello, World!",
 ///   },
+///   gtk::Button {
+///     connect_clicked => Self::Input::Print("Hello!".into()),
+///   }
 /// );
 ///
 /// mod above_expands_to_this {
@@ -135,7 +229,9 @@ fn recurse_replace_kurage_inner(
 ///   use kurage::relm4::{self, prelude::*};
 ///   use kurage::relm4::gtk::{self, prelude::*};
 ///   kurage::generate_component!(MeowPage:
-///     update(self, message, sender) {} => {}
+///     update(self, message, sender) {
+///       Print(s: String) => println!("{s}"),
+///     } => {}
 ///
 ///     gtk::Window {
 ///       #[wrap(Some)]
@@ -147,6 +243,9 @@ fn recurse_replace_kurage_inner(
 ///         gtk::Label {
 ///           set_label: "Hello, World!",
 ///         },
+///         gtk::Button {
+///           connect_clicked => Self::Input::Print("Hello!".into()),
+///         }
 ///       }
 ///     }
 ///   );
@@ -160,11 +259,20 @@ pub fn generate_generator(input: proc_macro::TokenStream) -> proc_macro::TokenSt
     let GenerateGeneratorSyn {
         macroname,
         component,
+        structblk,
+        initblk,
+        updateblk,
+        updateout,
+        view_first,
         views,
     } = syn::parse_macro_input!(input as GenerateGeneratorSyn);
-    let views: proc_macro2::TokenStream = recurse_replace_kurage_inner(views).collect();
+    let views: proc_macro2::TokenStream = recurse_replace_kurage_inner(views.unwrap()).collect();
     let component =
         component.unwrap_or_else(|| quote::quote! { [<$name>] }.into_iter().next().unwrap());
+    let structblk = structblk.iter();
+    let inputblk = initblk.iter();
+    let updateblk = updateblk.iter();
+    let updateout = updateout.iter();
     quote::quote! {
         macro_rules! #macroname {
             ($name:ident $({$($model:tt)+})? $(as $modelname:ident)?:
@@ -177,16 +285,18 @@ pub fn generate_generator(input: proc_macro::TokenStream) -> proc_macro::TokenSt
                 => {$( $out:pat ),*}
                 $($viewtt:tt)*
             ) => { ::kurage::paste::paste! {
-                kurage_page_pre!();
                 ::kurage::generate_component!(
-                    #component$({$($model)+})? $(as $modelname)?:
-                    $(init$([$($local_ref)+])?($root, $initsender, $initmodel, $initwidgets) $initblock)?
+                    #component$({#(#structblk)* $($model)+})? $(as $modelname)?:
+                    $(init$([$($local_ref)+])?($root, $initsender, $initmodel, $initwidgets) {
+                        #(#inputblk)*
+                        $initblock
+                    })?
                     update($self, $message, $sender) {
-                    // Nav(action: NavAction) => $sender.output(Self::Output::Nav(action)).unwrap(),
-                    $( $msg$(($($param: $paramtype),+))? => $msghdl),*
-                    } => {/*Nav(NavAction),*/ $($out),*}
+                        #(#updateblk)*
+                        $( $msg$(($($param: $paramtype),+))? => $msghdl),*
+                    } => {#(#updateout)* $($out),*}
 
-                    #views
+                    #view_first #views
                 );
             }};
         }

@@ -14,5 +14,7 @@
 //! - [Readymade (Installer for Ultramarine Linux)](https://github.com/FyraLabs/readymade)
 //! - [Enigmata (tauOS Text Editor)](https://github.com/tau-OS/enigmata)
 
+#[doc(inline)]
 pub use kurage_macro_rules::*;
+#[doc(inline)]
 pub use kurage_proc_macros::generate_generator;
