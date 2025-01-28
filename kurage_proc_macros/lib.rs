@@ -143,7 +143,7 @@ fn recurse_replace_kurage_inner(
 ///
 /// # Examples
 ///
-/// Example extracted from [Taidan]: <https://github.com/Ultramarine-Linux/taidan/blob/c146bf06d52ee318aff72d09b5d7e74080f4502f/src/macros.rs#L23C1-L43C30>
+/// Example extracted from [Taidan]: <https://github.com/Ultramarine-Linux/taidan/blob/2122fb2200c9b828d64be30ad734237a939da07e/src/macros.rs#L23-L39>
 ///
 /// ```
 /// # pub use kurage_proc_macros::generate_generator;
@@ -199,7 +199,7 @@ fn recurse_replace_kurage_inner(
 ///   //
 ///   // For the sake of demonstration and pulling in less build-dependencies for our doc-tests,
 ///   // let's use only gtk
-//
+///
 ///   gtk::Window {
 ///     #[wrap(Some)]
 ///     set_child = &gtk::Box {
