@@ -173,16 +173,14 @@ macro_rules! generate_component {
                 root: Self::Root,
                 $sender: $crate::relm4::ComponentSender<Self>,
             ) -> $crate::relm4::ComponentParts<Self> {
-                $crate::generate_component!(@default {
-                    let model = Self::default();
-                } $({
-                    #[allow(unused_mut, unused_assignments)]
-                    let mut $initmodel = Self::default();
-                })?);
-
-                $($($(let $local_ref = &$initmodel.$local_ref;)+)?)?
-
+                #[allow(unused_mut)]
+                let mut model = Self::default();
                 $(
+                    #[allow(unused_mut, unused_assignments)]
+                    let mut $initmodel = model;
+
+                    $($(let $local_ref = &$initmodel.$local_ref;)+)?
+
                     let $root = root.clone();
                     $(let $init = init;)?
                 )?
@@ -231,32 +229,6 @@ macro_rules! generate_component {
     (@out $comp:ident $outty:ty) => { };
     (@outty $comp:ident {$( $out:tt )*}) => { $crate::paste::paste! { [<$comp Output>] }};
     (@outty $comp:ident $outty:ty) => { $outty };
-
-    (@default {$($default:tt)+} {$($if:tt)+}) => { $($if)+ };
-    (@default {$($default:tt)+}) => { $($default)+ };
-
-    (@init $body:block {$($inner:tt)+}($sender:ident)) => {
-        fn init(
-            init: Self::Init,
-            root: Self::Root,
-            $sender: $crate::relm4::ComponentSender<Self>,
-        ) -> $crate::relm4::ComponentParts<Self> { $body }
-    };
-    (@init $body:block {$($inner:tt)+}($sender:ident $root:ident)) => {
-        fn init(
-            init: Self::Init,
-            $root: Self::Root,
-            $sender: $crate::relm4::ComponentSender<Self>,
-        ) -> $crate::relm4::ComponentParts<Self> { $body }
-    };
-    (@init $body:block {$($inner:tt)+}($sender:ident $root:ident $init:ident)) => {
-        fn init(
-            $init: Self::Init,
-            $root: Self::Root,
-            $sender: $crate::relm4::ComponentSender<Self>,
-        ) -> $crate::relm4::ComponentParts<Self> { $body }
-    };
-    (@do_nothing $($tt:tt)+) => { $($tt:tt)+ };
 }
 
 /// Macros used by other 🪼 macros.
