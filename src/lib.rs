@@ -18,3 +18,5 @@
 pub use kurage_macro_rules::*;
 #[doc(inline)]
 pub use kurage_proc_macros::generate_generator;
+#[cfg(feature = "fluent")]
+pub mod fluent;
