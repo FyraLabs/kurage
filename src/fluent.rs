@@ -1,3 +1,4 @@
+use itertools::Itertools;
 /// Set the correct language for the loader.
 ///
 /// # Examples
