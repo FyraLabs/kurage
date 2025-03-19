@@ -150,6 +150,7 @@ macro_rules! generate_component {
         $($viewtt:tt)*
     ) => { $crate::paste::paste! {
         $crate::generate_component!{ @model $comp $($($model)+)?}
+        #[allow(dead_code)]
         #[derive(Clone, Debug)]
         pub enum [<$comp Msg>] {
             $($msg$(($($paramtype),+))?),*
@@ -157,15 +158,15 @@ macro_rules! generate_component {
 
         $crate::generate_component!(@out $comp $out);
 
+        // HACK: this ensures `#[watch]` is parsed correctly for `model` idents
+        #[::kurage::mangle_ident(model)]
+        $(#[::kurage::mangle_ident($initmodel)])?
         #[$crate::relm4::component(pub)]
         impl $crate::relm4::SimpleComponent for $comp {
             #[allow(unused_parens)]
             type Init = ($($($InitType)?)?);
             type Input = [<$comp Msg>];
             type Output = $crate::generate_component!(@outty $comp $out);
-
-            view! { $($viewtt)* }
-
 
             #[allow(clippy::used_underscore_binding)]
             #[allow(unused_variables)]
@@ -212,6 +213,8 @@ macro_rules! generate_component {
                     $(Self::Input::$msg$(($($param),+))? => $msghdl),*
                 }
             }
+
+            view! { $($viewtt)* }
         }
     }};
     (@model $comp:ident $($model:tt)+) => { $crate::paste::paste! {
