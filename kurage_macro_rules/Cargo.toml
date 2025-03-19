@@ -1,6 +1,6 @@
 [package]
 name = "kurage_macro_rules"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "macro_rules! for kurage"
 license = "GPL-3.0-or-later"

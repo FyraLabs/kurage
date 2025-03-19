@@ -3,7 +3,7 @@ members = ["kurage_proc_macros", "kurage_macro_rules"]
 
 [package]
 name = "kurage"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Helper functions/macros for development with relm4"
 license = "GPL-3.0-or-later"
