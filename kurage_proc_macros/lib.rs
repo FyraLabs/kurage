@@ -104,20 +104,22 @@ impl syn::parse::Parse for GenerateGeneratorSyn {
     }
 }
 
-fn recurse_replace_kurage_inner(
-    ts: proc_macro2::TokenStream,
-) -> impl Iterator<Item = proc_macro2::TokenTree> {
-    ts.into_iter().flat_map(|tt| match tt {
-        proc_macro2::TokenTree::Ident(i) if i == "KURAGE_INNER" => {
-            Box::new(quote::quote! { $($viewtt)* }.into_iter())
-                as Box<dyn Iterator<Item = proc_macro2::TokenTree>>
-        }
-        proc_macro2::TokenTree::Group(group) => Box::new(std::iter::once(
-            proc_macro2::TokenTree::Group(proc_macro2::Group::new(
+fn recurse_replace<
+    'a,
+    T: Fn(proc_macro2::Ident) -> Box<dyn Iterator<Item = TokenTree>> + 'static,
+>(
+    ts: TokenStream,
+    ident: &'a str,
+    f: &'a T,
+) -> impl Iterator<Item = TokenTree> + use<'a, T> {
+    ts.into_iter().flat_map(move |tt| match tt {
+        TokenTree::Ident(i) if i == ident => f(i),
+        TokenTree::Group(group) => {
+            Box::new(std::iter::once(TokenTree::Group(proc_macro2::Group::new(
                 group.delimiter(),
-                recurse_replace_kurage_inner(group.stream()).collect(),
-            )),
-        )),
+                recurse_replace(group.stream(), ident, f).collect(),
+            ))))
+        }
         other => Box::new(std::iter::once(other)),
     })
 }
@@ -266,7 +268,10 @@ pub fn generate_generator(input: proc_macro::TokenStream) -> proc_macro::TokenSt
         view_first,
         views,
     } = syn::parse_macro_input!(input as GenerateGeneratorSyn);
-    let views: proc_macro2::TokenStream = recurse_replace_kurage_inner(views.unwrap()).collect();
+    let views: TokenStream = recurse_replace(views.unwrap(), "KURAGE_INNER", &|_| {
+        Box::new(quote::quote! { $($viewtt)* }.into_iter())
+    })
+    .collect();
     let component =
         component.unwrap_or_else(|| quote::quote! { [<$name>] }.into_iter().next().unwrap());
     let structblk = structblk.iter();
@@ -277,7 +282,8 @@ pub fn generate_generator(input: proc_macro::TokenStream) -> proc_macro::TokenSt
         macro_rules! #macroname {
             ($name:ident $({$($model:tt)+})? $(as $modelname:ident)?:
                 $(
-                init$([$($local_ref:ident)+])?($root:ident, $initsender:ident, $initmodel:ident, $initwidgets:ident) $initblock:block
+                $(preinit $preinit:block)?
+                init$([$($local_ref:tt)+])?($root:ident, $initsender:ident, $initmodel:ident, $initwidgets:ident) $initblock:block
                 )?
                 update($self:ident, $message:ident, $sender:ident) {
                     $( $msg:ident$(($($param:ident: $paramtype:ty),+$(,)?))? => $msghdl:expr ),*$(,)?
@@ -301,4 +307,17 @@ pub fn generate_generator(input: proc_macro::TokenStream) -> proc_macro::TokenSt
             }};
         }
     }.into()
+}
+
+#[proc_macro_attribute]
+pub fn mangle_ident(
+    attr: proc_macro::TokenStream,
+    body: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    let ident = syn::parse_macro_input!(attr as syn::Ident);
+    let body: TokenStream = recurse_replace(body.into(), &ident.to_string(), &move |_| {
+        Box::new(std::iter::once(TokenTree::Ident(ident.clone())))
+    })
+    .collect();
+    quote::quote! { #body }.into()
 }

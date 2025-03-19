@@ -20,3 +20,4 @@ pub use kurage_macro_rules::*;
 pub use kurage_proc_macros::generate_generator;
 #[cfg(feature = "fluent")]
 pub mod fluent;
+pub mod shortcuts;

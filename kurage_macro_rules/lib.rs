@@ -140,7 +140,8 @@ macro_rules! generate_pages {
 macro_rules! generate_component {
     ($comp:ident $({$($model:tt)+})?:
         $(
-        init$([$($local_ref:ident)+])?($root:ident, $initsender:ident, $initmodel:ident, $initwidgets:ident) $(for $init:ident: $InitType:ty)? $initblock:block
+        $(preinit $preinit:block)?
+        init$([$($local_ref:tt)+])?($root:ident, $initsender:ident, $initmodel:ident, $initwidgets:ident) $(for $init:ident: $InitType:ty)? $initblock:block
         )?
         update($self:ident, $message:ident, $sender:ident) {
             $( $msg:ident$(($($param:ident: $paramtype:ty),+$(,)?))? => $msghdl:expr ),*$(,)?
@@ -179,10 +180,11 @@ macro_rules! generate_component {
                     #[allow(unused_mut, unused_assignments)]
                     let mut $initmodel = model;
 
-                    $($(let $local_ref = &$initmodel.$local_ref;)+)?
+                    $($crate::generate_component!(@localref $initmodel $($local_ref)+))?;
 
                     let $root = root.clone();
                     $(let $init = init;)?
+                    $($preinit;)?
                 )?
 
                 // HACK: invoking view_output!() directly gives `()` when $init* is given.
@@ -229,6 +231,18 @@ macro_rules! generate_component {
     (@out $comp:ident $outty:ty) => { };
     (@outty $comp:ident {$( $out:tt )*}) => { $crate::paste::paste! { [<$comp Output>] }};
     (@outty $comp:ident $outty:ty) => { $outty };
+    (@localref $initmodel:ident) => {};
+    (@localref $initmodel:ident $local_ref:ident {$($inner:tt)+} $($next:tt)*) => {
+        let $local_ref = {$($inner)+};
+        $crate::generate_component!(@localref $initmodel $($next)*);
+    };
+    (@localref $initmodel:ident $local_ref:ident $nextident:ident $($next:tt)*) => {
+        let $local_ref = &$initmodel.$local_ref;
+        $crate::generate_component!(@localref $initmodel $nextident $($next)*);
+    };
+    (@localref $initmodel:ident $local_ref:ident) => {
+        let $local_ref = &$initmodel.$local_ref;
+    };
 }
 
 /// Macros used by other 🪼 macros.
