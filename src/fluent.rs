@@ -1,12 +1,29 @@
-pub fn handle_l10n() -> i18n_embed::fluent::FluentLanguageLoader {
+/// Set the correct language for the loader.
+///
+/// # Examples
+///
+/// Example taken from Taidan.
+///
+/// ```rs,ignore
+/// #[derive(rust_embed::RustEmbed)]
+/// #[folder = "po/"]
+/// struct Localizations;
+///
+/// let loader = handle_l10n(&Localizations, fluent_language_loader!())
+/// ```
+///
+/// Note that the usage of [`i18n_embed::fluent::fluent_language_loader!`]
+/// requires the `i18n.toml` file.
+pub fn handle_l10n(
+    i18n_assets: &dyn i18n_embed::I18nAssets,
+    loader: i18n_embed::fluent::FluentLanguageLoader,
+) -> i18n_embed::fluent::FluentLanguageLoader {
     use i18n_embed::{
-        fluent::fluent_language_loader,
         unic_langid::{subtags::Script, LanguageIdentifier},
         LanguageLoader,
     };
     use std::str::FromStr;
-    let loader = fluent_language_loader!();
-    let available_langs = loader.available_languages(&Localizations).unwrap();
+    let available_langs = loader.available_languages(i18n_assets).unwrap();
     let mut langs = ["LC_ALL", "LC_MESSAGES", "LANG", "LANGUAGE", "LANGUAGES"]
         .into_iter()
         .flat_map(|env| {
@@ -14,7 +31,7 @@ pub fn handle_l10n() -> i18n_embed::fluent::FluentLanguageLoader {
                 locales
                     .split(':')
                     .filter_map(|locale| LanguageIdentifier::from_str(locale).ok())
-                    .collect_vec()
+                    .collect::<Vec<_>>()
             })
         })
         .update(|li| {
@@ -32,10 +49,10 @@ pub fn handle_l10n() -> i18n_embed::fluent::FluentLanguageLoader {
                 }
             }
         })
-        .collect_vec();
+        .collect::<Vec<_>>();
     if langs.is_empty() {
         langs = vec![loader.fallback_language().clone()];
     }
-    loader.load_languages(&Localizations, &langs).unwrap();
+    loader.load_languages(i18n_assets, &langs).unwrap();
     loader
 }
