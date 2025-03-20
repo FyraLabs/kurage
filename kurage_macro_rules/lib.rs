@@ -140,7 +140,7 @@ macro_rules! generate_pages {
 macro_rules! generate_component {
     ($comp:ident $({$($model:tt)+})?:
         $(
-        $(preinit $preinit:block)?
+        $(preinit /* $([$($mangle:ident)+])? */ { $($preinit:tt)+ })?
         init$([$($local_ref:tt)+])?($root:ident, $initsender:ident, $initmodel:ident, $initwidgets:ident) $(for $init:ident: $InitType:ty)? $initblock:block
         )?
         update($self:ident, $message:ident, $sender:ident) {
@@ -161,6 +161,11 @@ macro_rules! generate_component {
         // HACK: this ensures `#[watch]` is parsed correctly for `model` idents
         #[::kurage::mangle_ident(model)]
         $(#[::kurage::mangle_ident($initmodel)])?
+        // #[::kurage::mangle_ident(root)]
+        // $(#[::kurage::mangle_ident($root)])?
+        // #[::kurage::mangle_ident(init)]
+        // $($(#[::kurage::mangle_ident($init)])?)?
+        // $($($($(#[::kurage::mangle_ident($mangle)])+)?)?)?
         #[$crate::relm4::component(pub)]
         impl $crate::relm4::SimpleComponent for $comp {
             #[allow(unused_parens)]
@@ -185,7 +190,7 @@ macro_rules! generate_component {
 
                     let $root = root.clone();
                     $(let $init = init;)?
-                    $($preinit;)?
+                    $($($preinit)+)?
                 )?
 
                 // HACK: invoking view_output!() directly gives `()` when $init* is given.
