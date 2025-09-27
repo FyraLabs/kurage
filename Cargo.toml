@@ -3,7 +3,7 @@ members = ["kurage_proc_macros", "kurage_macro_rules"]
 
 [package]
 name = "kurage"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 description = "Helper functions/macros for development with relm4"
 license = "GPL-3.0-or-later"
@@ -14,12 +14,12 @@ categories = ["gui"]
 
 [dependencies]
 kurage_proc_macros = { version = "0.1.4", path = "kurage_proc_macros" }
-kurage_macro_rules = { version = "0.1.4", path = "kurage_macro_rules", default-features = false }
-i18n-embed = { version = "0.15.3", features = [
+kurage_macro_rules = { version = "0.1.5", path = "kurage_macro_rules", default-features = false }
+i18n-embed = { version = "0.16.0", features = [
     "desktop-requester",
     "fluent-system",
 ], optional = true }
-i18n-embed-fl = { version = "0.9.3", optional = true }
+i18n-embed-fl = { version = "0.10.0", optional = true }
 rust-embed = { version = "8.5.0", optional = true }
 itertools = { version = "0.14.0", optional = true }
 

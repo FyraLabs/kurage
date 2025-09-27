@@ -185,12 +185,10 @@ macro_rules! generate_component {
                 $(
                     #[allow(unused_mut, unused_assignments)]
                     let mut $initmodel = model;
-
-                    $($crate::generate_component!(@localref $initmodel $($local_ref)+))?;
-
                     let $root = root.clone();
                     $(let $init = init;)?
                     $($($preinit)+)?
+                    $($crate::generate_component!(@localref $initmodel $($local_ref)+))?;
                 )?
 
                 // HACK: invoking view_output!() directly gives `()` when $init* is given.
